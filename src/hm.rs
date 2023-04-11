@@ -1,35 +1,42 @@
 use std::any::TypeId;
 use std::collections::BTreeSet;
 use std::fmt::Display;
+use avl::{AvlTreeMap, AvlTreeSet};
 use num::{ToPrimitive, Zero};
 use num_bigint::BigUint;
-use crate::child::Child;
+use crate::idk::{FooBST};
 use crate::pval::PVal;
 
-pub struct HashMap {
-    list: Vec<&'static mut Child>,
+#[derive(Debug)]
+pub struct HashMapx {
+    list: Vec<AvlTreeMap<PVal, PVal>>,
+    x: BigUint
 }
 
-impl HashMap {
-    pub fn new() {
-        /*let mut v = Vec::new();
+impl HashMapx {
+    pub fn new() -> HashMapx {
+        let mut list = Vec::new();
         for _ in 0..256 {
-            v.push(&mut Child::default());
+            list.push(AvlTreeMap::new());
         }
-        HashMap {
-            list: v
-        }*/
+        HashMapx {
+            list,
+            x: BigUint::from(0xf as u64),
+        }
     }
-
-    pub fn put(&self, key: PVal, val: PVal){
-        // put as last char
-       /* let e = self.list[key.lt()];
-        let c = Child {
-            key,
-            val,
-            ptr: None,
-            occupied: 1,
-        };
-        e.insert(c);*/
+    pub fn get(&mut self, key: PVal) -> Option<PVal>{
+        // let x = (key.get()&self.x.clone()).to_usize().unwrap();
+        match self.list[0].get(&key) {
+            None => {
+                None
+            }
+            Some(x) => {
+                Some(x.clone())
+            }
+        }
+    }
+    pub fn insert(&mut self, key: PVal, val: PVal){
+        // let x = (key.get()&self.x.clone()).to_usize().unwrap();
+        self.list[0].insert(key, val);
     }
 }
