@@ -244,7 +244,7 @@ mod bench_comp {
             }
             b.iter(|| {
                 for i in v.iter() {
-                    let k = i.clone();
+                    let k = i.cone();
                     // let v = i.clone();
                     let k = PVal::put(k);
                     // let v = PVal::put(v);
@@ -367,9 +367,11 @@ mod benches_unsf_str {
     use num_bigint::{BigUint, RandBigInt};
     use num_traits::ToPrimitive;
     use rand::thread_rng;
-    use crate::mhf;
+    use crate::{any_as_u8_slice, genh, mhf};
+    use crate::hashes_test::FNVa1;
 
     static SIZE: usize = 10000;
+
 
     /*    #[bench]
         fn a(b: &mut Bencher) {
@@ -450,94 +452,177 @@ mod benches_unsf_str {
                 }
             });
         }*/
+    /*
+        #[bench]
+        fn mhft(b: &mut Bencher) {
+            let mut vec = Vec::<String>::new();
+            let mut g = thread_rng();
+            let mut flg = BigUint::default();
+            for _ in 0..SIZE {
+                let x = g.gen_biguint(1<<14);
+                vec.push(x.to_string());
+            }
+            b.iter(|| {
+                for i in vec.iter() {
+                    let i = i.as_bytes();
+                    genh(i);
+                }
+            });
+        }*/
+
 
     #[test]
-    fn mhft() {
+    fn mhftbtest() {
         let mut vec = Vec::<String>::new();
         let mut g = thread_rng();
         let mut flg = BigUint::default();
         for _ in 0..SIZE {
-            let x = g.gen_biguint(1024);
-            let bytes = x.to_bytes_le();
-            let mut st = "".to_string();
-            for i in (0..(bytes.len() - 1)).step_by(2) {
-                let ix = BigUint::from(bytes[i]);
-                let fp = ((ix << 8 as usize) | BigUint::from(bytes[i + 1]));
-                st += &*fp.to_string();
-                flg = flg ^ fp;
-            }
-            vec.push(st);
+            let x = g.gen_biguint(1 << 14);
+            vec.push(x.to_string());
         }
-        let mut hm = HashMap::<String, usize>::new();
-        let mut col = 0 as usize;
-        for s in vec.iter() {
-            let bytes = s.as_bytes();
-            let len = s.len();
-            let s = (&flg ^ BigUint::from(bytes[0])) ^ (&flg ^ BigUint::from(bytes[len - 1]));
-            if let Some(ref mut st) = hm.get(&s.to_string()) {
-                *st = &((*st) + &(1 as usize));
-                col += 1;
+        let mut hm = HashMap::new();
+        for i in vec.iter() {
+            let ix = i.as_bytes();
+            let k = genh(ix);
+            if let Some(key) = hm.get(&k) {
+                if *key != i {
+                    println!("{}", key);
+                }
             } else {
-                hm.insert(s.to_string(), 1);
+                hm.insert(k, i);
             }
         }
-
-        println!("{} {}", col, hm.len());
     }
 
     #[bench]
-    fn ls(b: &mut Bencher) {
-        let mut v = Vec::new();
-        let mut rng = rand::thread_rng();
+    fn mhftb1(b: &mut Bencher) {
+        let mut vec = Vec::<String>::new();
+        let mut g = thread_rng();
+        let mut flg = BigUint::default();
         for _ in 0..SIZE {
-            v.push(rng.gen_biguint(64).to_usize().unwrap());
+            let x = g.gen_biguint(1 << 14);
+            vec.push(x.to_string());
         }
+        let mut hm = HashMap::new();
         b.iter(|| {
-            for i in 0..v.len() {
-                let mut x = 0x1 << &(v[i]);
-                let _ = 0x1 & &(v[i]);
-                let _ = 0x1 | &(v[i]);
-                let _ = 0x1 ^ &(v[i]);
-            }
-        });
-    }
-
-    #[bench]
-    fn lsu(b: &mut Bencher) {
-        let mut v = Vec::new();
-        let mut rng = rand::thread_rng();
-        for _ in 0..SIZE {
-            v.push(rng.gen_biguint(64).to_usize().unwrap());
-        }
-        b.iter(|| {
-            for i in 0..v.len() {
-                let v: *const usize = &v[i];
+            for i in vec.iter() {
                 unsafe {
-                    let _ = 0x1 << &(*v);
-                    let _ = 0x1 & &(*v);
-                    let _ = 0x1 | &(*v);
-                    let _ = 0x1 ^ &(*v);
+                    hm.insert(genh(any_as_u8_slice(i)), i);
                 }
             }
         });
     }
 
     #[bench]
-    fn lsx(b: &mut Bencher) {
-        let mut v = Vec::new();
-        let mut rng = rand::thread_rng();
+    fn mhftb2(b: &mut Bencher) {
+        let mut vec = Vec::<String>::new();
+        let mut g = thread_rng();
+        let mut flg = BigUint::default();
         for _ in 0..SIZE {
-            v.push(rng.gen_biguint(64).to_usize().unwrap());
+            let x = g.gen_biguint(1 << 14);
+            vec.push(x.to_string());
         }
+        let mut hm = HashMap::new();
         b.iter(|| {
-            for i in 0..v.len() {
-                let _ = 1 << &(v[i]);
-                let _ = 1 & &(v[i]);
-                let _ = 1 | &(v[i]);
-                let _ = 1 ^ &(v[i]);
+            for i in vec.iter() {
+                hm.insert(i, i);
             }
         });
     }
+
+    #[bench]
+    fn mhftb3(b: &mut Bencher) {
+        let mut vec = Vec::<String>::new();
+        let mut g = thread_rng();
+        let mut flg = BigUint::default();
+        for _ in 0..SIZE {
+            let x = g.gen_biguint(1 << 14);
+            vec.push(x.to_string());
+        }
+        let mut hm = HashMap::new();
+        let mut fnv = FNVa1::init();
+        b.iter(|| {
+            for i in vec.iter() {
+                unsafe {
+                    hm.insert(fnv.hash(any_as_u8_slice(i)), i);
+                }
+            }
+        });
+    }
+
+    #[bench]
+    fn mhftb4(b: &mut Bencher) {
+        let mut vec = Vec::<String>::new();
+        let mut g = thread_rng();
+        let mut flg = BigUint::default();
+        for _ in 0..SIZE {
+            let x = g.gen_biguint(1 << 14);
+            vec.push(x.to_string());
+        }
+        let mut hm = HashMap::new();
+        let mut fnv = FNVa1::init();
+        b.iter(|| {
+            for i in vec.iter() {
+                unsafe {
+                    hm.insert(genh(any_as_u8_slice(&fnv.hash(any_as_u8_slice(i)))), i);
+                }
+            }
+        });
+    }
+
+    /*    #[bench]
+        fn ls(b: &mut Bencher) {
+            let mut v = Vec::new();
+            let mut rng = rand::thread_rng();
+            for _ in 0..SIZE {
+                v.push(rng.gen_biguint(64).to_usize().unwrap());
+            }
+            b.iter(|| {
+                for i in 0..v.len() {
+                    let mut x = 0x1 << &(v[i]);
+                    let _ = 0x1 & &(v[i]);
+                    let _ = 0x1 | &(v[i]);
+                    let _ = 0x1 ^ &(v[i]);
+                }
+            });
+        }
+
+        #[bench]
+        fn lsu(b: &mut Bencher) {
+            let mut v = Vec::new();
+            let mut rng = rand::thread_rng();
+            for _ in 0..SIZE {
+                v.push(rng.gen_biguint(64).to_usize().unwrap());
+            }
+            b.iter(|| {
+                for i in 0..v.len() {
+                    let v: *const usize = &v[i];
+                    unsafe {
+                        let _ = 0x1 << &(*v);
+                        let _ = 0x1 & &(*v);
+                        let _ = 0x1 | &(*v);
+                        let _ = 0x1 ^ &(*v);
+                    }
+                }
+            });
+        }
+
+        #[bench]
+        fn lsx(b: &mut Bencher) {
+            let mut v = Vec::new();
+            let mut rng = rand::thread_rng();
+            for _ in 0..SIZE {
+                v.push(rng.gen_biguint(64).to_usize().unwrap());
+            }
+            b.iter(|| {
+                for i in 0..v.len() {
+                    let _ = 1 << &(v[i]);
+                    let _ = 1 & &(v[i]);
+                    let _ = 1 | &(v[i]);
+                    let _ = 1 ^ &(v[i]);
+                }
+            });
+        }*/
 
     /*    #[bench]
         fn f(b: &mut Bencher) {
@@ -680,56 +765,224 @@ unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
 }
 
 fn gint(no: u32) -> u32 {
-    let r = 1 << (no % 32);
-    let q = no >> 5;
-    q + r
+    (1 << (no & 31)) + (no >> 5)
 }
 
-fn genh(a: &[u8]) -> u32{
+
+fn bwadd(x: u32, y: u32) -> u32 {
+    let mut x = x;
+    let mut y = y;
+    let mut c;
+    while y != 0 {
+        c = x & y;
+        x ^= y;
+        y = c << 1;
+    }
+    x
+}
+
+fn cls(n: u32, d: u32) -> u32 {
+    (n << d) | (n >> (31 - d))
+}
+
+fn crs(n: u32, d: u32) -> u32 {
+    return (n >> d) | (n << (32 - d));
+}
+
+fn genh(a: &[u8]) -> u32 {
     let mut flag = 0;
+    // let mut flag1 = 0;
+    // let mut flag2 = 0;
+    let mut gintx;
+    let mut ix;
     let len = a.len();
     for i in 0..len {
-        flag ^= gint(a[i] as u32);
+        /*if (i & 1) == 0 {
+            // flag <<= 1;
+            flag = crs(flag, 1);
+        }*/ /*else {
+
+        }*/
+        ix = a[i] as u32;
+        gintx = gint(ix);
+        // flag1 |= gintx;
+        flag = flag ^ gintx ^ ix;
+        flag = cls(flag, gintx & 30);
+        // let c = flag2 & gintx;
+        // flag = flag ^ gintx;
+        // flag2 = bwadd(flag2, gintx);
     }
     flag
+    // bwadd(flag,flag2)
+    // bwadd(flag, bwadd(flag1 << 3, flag1 << 1))
+    // flag | (flag & !flag1)
+    // bwadd(flag, bwadd(flag1 << 3, bwadd(flag1 << 1, flag2)))
+    // flag + (flag1 << 3) + (flag1 << 1) + flag2
+    // flag %32 + (flag1 << 3)%32 + (flag1 << 1) + flag2
 }
 
+/*fn genh(a: &[u8]) -> u32 {
+    let mut flag = 0;
+    // let mut flag1 = 0;
+    // let mut flag2 = 0;
+    let mut gintx;
+    let mut ix;
+    let len = a.len();
+    for i in 0..len {
+        /*if (i & 1) == 0 {
+            // flag <<= 1;
+            flag = crs(flag, 1);
+        }*/ /*else {
+
+        }*/
+        ix = a[i] as u32;
+        gintx = gint(ix);
+        // flag1 |= gintx;
+        flag = flag ^ gintx ^ ix;
+        flag = cls(flag, gintx & 30);
+        // let c = flag2 & gintx;
+        // flag = flag ^ gintx;
+        // flag2 = bwadd(flag2, gintx);
+    }
+    flag
+    // bwadd(flag,flag2)
+    // bwadd(flag, bwadd(flag1 << 3, flag1 << 1))
+    // flag | (flag & !flag1)
+    // bwadd(flag, bwadd(flag1 << 3, bwadd(flag1 << 1, flag2)))
+    // flag + (flag1 << 3) + (flag1 << 1) + flag2
+    // flag %32 + (flag1 << 3)%32 + (flag1 << 1) + flag2
+}*/
+
+/*fn genh(a: &[u8]) -> u32 {
+    let mut flag = 0;
+    let mut flag1 = 0;
+    let mut flag2 = 0;
+    for i in a {
+        /*if (i & 1) == 0 {
+            // flag <<= 1;
+            flag = crs(flag, 1);
+        }*/ /*else {
+
+        }*/
+        let gint = gint(*i as u32);
+        flag ^= gint; //^ (*i as u32);
+        flag = cls(flag, 1);
+        flag1 |= gint;
+        flag2 = bwadd(flag2, gint);
+    }
+    // flag | (flag & !flag1)
+    bwadd(flag, bwadd(flag1 << 3, bwadd(flag1 << 1, flag2)))
+    // flag + (flag1 << 3) + (flag1 << 1) + flag2
+    // flag %32 + (flag1 << 3)%32 + (flag1 << 1) + flag2
+}*/
+
 fn main() {
-    let range = 10000;
+    // println!("{}","000001001001000001100001000011");
+    let x = b"000001001001000001100001000011";
+    // let x: &mut [u8; 30] = &mut x;
+    // x.reverse();
+    let len = x.len();
+    for i in (0..len).rev() {
+        print!("{}", x[i] as char);
+    }
+    println!();
+    // let mut foo = 19142723;
+    let mut foo = 814090528;
+    for i in 1..=20 {
+        let bar = foo & 3;
+        // println!("{}",bar);
+        if bar == 0 {
+            println!("{i}");
+        } else {
+            match bar {
+                1 => {
+                    println!("Fizz");
+                }
+                2 => {
+                    println!("Buzz");
+                }
+                _ => {
+                    println!("FizzBuzz");
+                }
+            }
+        }
+        foo = (foo >> 2) | (bar << 28);
+    }
+    /*let mut v = Vec::new();
+    let mut hm = HashMap::new();
+    for i in 0..256 {
+        v.push(genh(&[i as u8]));
+        if let Some(x) = hm.get(&v[i]) {
+            hm.insert(v[i], x+1);
+        }else {
+            hm.insert(v[i], 1);
+        }
+    }
+    for i in hm.iter() {
+        let (key, val) = i;
+        println!("{} {}",key, val);
+        if *val > 1 {
+
+        }
+    }*/
+    /*    let x = "njimp".to_string();
+        let x = x.as_bytes();
+        let y = "pbilk".to_string();
+        let y = y.as_bytes();*/
+    // println!("{} {}", genh(x), genh(y));
+    let range = 1;
     let mut g = thread_rng();
-    let mut f = File::open("assets/words.txt").unwrap();
+    let mut f = File::open("assets/1.fa").unwrap();
+    // let mut f = File::open("assets/foo.txt").unwrap();
+    // let mut f = File::open("assets/keywords.txt").unwrap();
+    // let mut f = File::open("assets/keywords1.txt").unwrap();
+    // let mut f = File::open("assets/words.txt").unwrap();
     let mut string = String::new();
     f.read_to_string(&mut string).unwrap();
-    // let mut vec = Vec::new();
+    let mut vec = Vec::new();
     // let string = "aloalo".to_string();
     let mut chars = string.as_bytes();
     let len = chars.len();
+    let mut hm = HashMap::new();
+    let mut hm1 = HashMap::new();
     for i in (0..len).step_by(5) {
-
-    }
-    for _ in 0..range {
-
+        let stx = String::from_utf8((&[chars[i], chars[i + 1], chars[i + 2], chars[i + 3], chars[i + 4]]).to_vec()).unwrap();
+        // println!("{}",stx);
+        vec.push(stx);
     }
     let mut dup = 0 as usize;
-    let mut hm = HashMap::new();
-    let mut hmt = HashMap::new();
     for _ in 0..range {
-        let mut flag = 0;
-        let x = g.gen_biguint(1024);
-        let bytes = x.to_bytes_le();
-        let mut st = "".to_string();
-        for i in bytes {
-            st += &*(i as char).to_string();
-            flag ^= gint(i as u32);
-        }
-        hmt.insert(x,1);
-        if let Some(_) = hm.get(&flag) {
-            dup += 1;
-        }else {
-            hm.insert(flag, 1);
+        for i in vec.iter() {
+            let bytes = i.as_bytes();
+            let x = genh(bytes);
+            if let Some(c) = hm.get(&x) {
+                if i != *c {
+                    dup += 1;
+                    println!("{} {}", i, c);
+                }
+            } else {
+                hm.insert(x, i);
+            }
+            hm1.insert(i, i);
         }
     }
-    println!("{} {} {}", dup, hm.len(), hmt.len());
+    println!("{} {} {}", dup, hm.len(), hm1.len());
+    /*    let mut dup = 0 as usize;
+        let mut hm = HashMap::new();
+        let mut hmt = HashMap::new();
+        for _ in 0..range {
+            let mut flag = 0;
+            let x = g.gen_biguint(1024);
+            let bytes = x.to_bytes_le();
+            let mut st = "".to_string();
+            for i in bytes {
+                st += &*(i as char).to_string();
+                flag ^= gint(i as u32);
+            }
+            hmt.insert(x,1);
+            hm.insert(flag, 1);
+        }
+        println!("{} {} {}", dup, hm.len(), hmt.len());*/
     /*    let range = 10000;
         let mut rng = rand::thread_rng();
         let mut hm = HashMap::new();

@@ -41,7 +41,8 @@ impl AS {
         let size = BigUint::from(256 as u64);
         let hash = Hashes::default();
         let fnva1 = hash.fnva1;
-        fnva1.hash(pair.key.clone(),size).get().to_usize().unwrap()
+        0
+        // fnva1.hash(pair.key.clone(),size).get().to_usize().unwrap()
     }
    /* pub fn get(&mut self, key: PVal) -> PVal{
 
