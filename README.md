@@ -1,0 +1,2 @@
+# About
+This is a hash algo designed by me, this isn't supposed to be public yet but it's just posted to put it under a [Licence](!LICENSE.md). This is untested (mathematically as well as with bruthforce). It's advised not to use any part of the repo without owner's permission. 
